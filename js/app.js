@@ -139,22 +139,6 @@ function withDelay(fn, delay) {
   };
 }
 
-function doFilterProductsByName() {  
-  const lowerCaseSearchTerm = nameSearch.value.toLocaleLowerCase();
-  if (lowerCaseSearchTerm != "")
-    filteredProducts = allProducts.filter(product => product.name.includes(lowerCaseSearchTerm));
-}
-
-function doFilterProductsByBrand(searchTerm) {
-  if (searchTerm != "")
-    filteredProducts = allProducts.filter(product => product.brand == searchTerm);
-}
-
-function doFilterProductsByType() {
-  if (typeSearch.value != "Todos")
-    filteredProducts = allProducts.filter(product => product.product_type == typeSearch.value);
-}
-
 function orderBy() {
   switch (orderSearch.value) {
     case "1":
