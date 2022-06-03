@@ -8,14 +8,14 @@
     <link rel="stylesheet" href="css/style.css" />
   </head>
   <body>
-    <header>
-      <h1>Make Up Catalog</h1>
-    </header>
-    <main>
+    <div class="header">    
+      <header>
+        <h1>Make Up Catalog</h1>
+      </header>
       <form class="catalog-control">
         <div class="form-control">
           <label for="filter-name">Nome:</label>
-          <input type="text" id="filter-name" disabled/>
+          <input type="text" id="filter-name" disabled />
         </div>
         <div class="form-control">
           <label for="filter-brand">Marca:</label>
@@ -40,8 +40,16 @@
           </select>
         </div>
       </form>
+    </div>
+    
+    <main>      
+      <section class="message"></section>
       <section class="catalog"></section>
+      <section class="footer">
+        <p>IGTI Desenvolvedor(a) React - Trabalho Prático 01</p>
+      </section>
     </main>
+    
     <script src="js/app.js"></script>
   </body>
 </html>

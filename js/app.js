@@ -1,87 +1,63 @@
 const URL_BASE = "http://makeup-api.herokuapp.com/api/v1/";
 
 let allProducts = [];
-let filteredProducts= [];
+let productBrands = [];
+let productTypes = [];
+let productChild = "";
 
-const main = document.querySelector("main");
-const catalogSection = document.querySelector("section");
+const messageSection = document.querySelector(".message");
+const catalogSection = document.querySelector(".catalog");
+
 const nameSearch = document.querySelector("#filter-name");
 const brandSearch = document.querySelector("#filter-brand");
 const typeSearch = document.querySelector("#filter-type");
 const orderSearch = document.querySelector("#sort-type");
 
-async function start() {
+(async () => {
 
-  const loading = document.createElement("div");
-  loading.classList.add("loading");
-  loading.innerHTML = `<h3>Loading Catalog...</h3><p><img src="./img/loading.gif" alt="Loading Catalog"/></p>`;
-  main.appendChild(loading);
+  messageSection.style.display = "flex";
+  messageSection.innerHTML = `<div><h3>Loading Catalog...</h3><p><img src="./img/loading.gif" alt="Loading Catalog"/></p></div>`;
 
-  await fetchProducts();
+  allProducts = await fetchProducts();
 
-  loadBrands();
-  loadTypes();
-  
+  loadProducts();
+  loadComboOptions(brandSearch, productBrands.uniq().sort());
+  loadComboOptions(typeSearch, productTypes.uniq().sort());
+
+  productChild = Array.from(document.querySelectorAll(".product"));
+
   enableControls();
   enableEvents();
 
-  render();
+  messageSection.style.display = "none";
 
-  main.removeChild(loading);
-  
-}
+})();
 
 async function fetchProducts() {
-  const resource = await fetch(`${URL_BASE}/products.json`);
-  const json = await resource.json();
+  try {
+    const resource = await fetch(`${URL_BASE}/products.json`);
+    const json = await resource.json();
 
-  allProducts = json.map(({ id, brand, name, price, product_type, rating, category, api_featured_image }) => {
-    const newPrice = (+price * 5.5).toFixed(2);
-    const formattedPrice = (newPrice).toLocaleString('pt-br',{style: 'currency', currency: 'BRL'});
-    return {
-      id, 
-      brand,
-      name,
-      formattedPrice,
-      price: newPrice,
-      product_type,
-      rating,
-      category,
-      image_link: api_featured_image,
-    }
-  });
-
-  filteredProducts = allProducts.slice();
-}
-
-function getProduct(id) { 
-  return filteredProducts.find(product => product.id == id);
-}
-
-function loadBrands() {
-  const brandsMap = allProducts.reduce((entryMap, e) => entryMap.set(e.brand, [...entryMap.get(e.brand)||[], e]), new Map());
-  const brands = Array.from(brandsMap.keys()).sort();
-  
-  brands.map(brand => {
-    if (brand) {
-      const elem = document.createElement("option");
-      elem.innerHTML = brand; 
-      brandSearch.appendChild(elem);    
-    }
-  });
-}
-
-function loadTypes() {
-  const typesMap = allProducts.reduce((entryMap, e) => entryMap.set(e.product_type, [...entryMap.get(e.product_type)||[], e]), new Map());
-  const types = Array.from(typesMap.keys()).sort();
-  
-  types.map(type => {
-    if (type) {
-      const elem = document.createElement("option");
-      elem.innerHTML = type; 
-      typeSearch.appendChild(elem);    
-    }
-  });
+    return json.map(({ id, brand, name, price, product_type, rating, category, api_featured_image }) => {
+      const newPrice = (+price * 5.5).toFixed(2);
+      const formattedPrice = (newPrice).toLocaleString('pt-br',{style: 'currency', currency: 'BRL'});
+      return {
+        id, 
+        brand,
+        name,
+        formattedPrice,
+        price: newPrice,
+        product_type,
+        rating,
+        category,
+        image_link: api_featured_image,
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    messageSection.style.display = "flex";
+    messageSection.innerHTML = `<div><h3>Error...</h3><p>${error}</p></div>`;
+  }
 }
 
 function enableControls() {
@@ -93,42 +69,98 @@ function enableControls() {
 }
 
 function enableEvents() {
-  nameSearch.addEventListener("input", withDelay(filter, 500));  
-  brandSearch.addEventListener("change", () => filter());  
-  typeSearch.addEventListener("change", () => filter());
-  orderSearch.addEventListener("change", () => filter());
-}
-
-function addEvents() {
-  filteredProducts.map(product => {
-    let productElem = document.querySelector(`[tabindex = "${product.id}"]`);
-    productElem.addEventListener("click", () => {    
-      const productDetails = getProduct(product.id);    
-      loadDetails(productDetails, productElem);    
-    });
+  nameSearch.addEventListener("input", withDelay(loadFilters, 500));  
+  brandSearch.addEventListener("change", loadFilters);  
+  typeSearch.addEventListener("change", loadFilters);
+  orderSearch.addEventListener("change", () => {
+    loadProducts();
+    loadFilters();
   });
 }
 
-function filter() {
-  let tempProducts = [];
-  filteredProducts = allProducts.slice(); 
-  
-  if (nameSearch.value != "") {
-    tempProducts = filteredProducts.filter(product => product.name.toLowerCase().includes(nameSearch.value.toLowerCase()));
-    filteredProducts = tempProducts.slice();
-  } 
+function loadProducts() {
+  let view = sortProducts(allProducts, orderSearch.value)
+    .map((product) => renderProducts(product))
+    .join("");
 
-  if (brandSearch.value != "") {
-    tempProducts = filteredProducts.filter(product => product.brand == brandSearch.value);
-    filteredProducts = tempProducts.slice();
-  } 
+  catalogSection.innerHTML = view;
+}
 
-  if (typeSearch.value != "") {
-    tempProducts = filteredProducts.filter(product => product.product_type == typeSearch.value);
-    filteredProducts = tempProducts.slice();
-  } 
+function loadFilters() {
+  const name = nameSearch.value;
+  const brand = brandSearch.value;
+  const type = typeSearch.value;
 
-  render();
+  productChild.forEach((product) => {
+    if (validateProduct(product, name, brand, type)) {
+      product.style.display = "block";
+    } else {
+      product.style.display = "none";
+    }
+  });
+}
+
+function sortProducts(products, sortType) {
+  switch (sortType) {
+    case "1":
+      return products.sort((a, b) => b.rating - a.rating);
+    case "2":
+      return products.sort((a, b) => a.price - b.price);
+    case "3":
+      return products.sort((a, b) => b.price - a.price);
+    case "4":
+      return products.sort((a, b) => a.name.localeCompare(b.name));
+    case "5":
+      return products.sort((a, b) => b.name.localeCompare(a.name));
+    default:
+      break;
+  }
+}
+
+function renderProducts(product) {
+  productBrands = productBrands.concat([product.brand]);
+  productTypes = productTypes.concat([product.product_type]);
+
+  return `
+      <div class="product" data-name="${product.name}" data-brand="${product.brand}" data-type="${product.product_type}" tabindex="${product.id}">
+        <figure class="product-figure">
+          <img src="${product.image_link}" width="215" height="215" alt="${product.name}" onerror="javascript:this.src='img/unavailable.png'">
+        </figure>
+        <section class="product-description">
+          <h1 class="product-name">${product.name}</h1>
+          <div class="product-brands"><span class="product-brand background-brand">${product.brand}</span>
+            <span class="product-brand background-price">${product.formattedPrice}</span>
+          </div>
+        </section> 
+        <section class="product-details">
+          ${renderProductDetails(product)}
+        </section>
+      </div>`;
+}
+
+function renderProductDetails(product) {
+  let details = ["brand", "price", "product_type", "category", "rating"];
+  return Object.entries(product)
+    .filter(([name, _]) => details.includes(name))
+    .map(([name, value]) => {
+      return `<div class="details-row">
+       <div>${name}</div>
+       <div class="details-bar">
+         <div class="details-bar-bg" style="width= 250">${value}</div>
+       </div>
+     </div>`;
+    })
+    .join("");
+}
+
+function validateProduct(product, name, brand, type) {
+  const search = new RegExp(name, "i");
+
+  const checkName = search.test(product.dataset.name);
+  const checkBrand = product.dataset.brand.includes(brand);
+  const checkType = product.dataset.type.includes(type);
+
+  return checkName && checkBrand && checkType;
 }
 
 function withDelay(fn, delay) {
@@ -139,85 +171,19 @@ function withDelay(fn, delay) {
   };
 }
 
-function orderBy() {
-  switch (orderSearch.value) {
-    case "1":
-     filteredProducts.sort((a, b) => b.rating - a.rating);
-     break;
-    case "2":
-     filteredProducts.sort((a, b) => a.price - b.price);
-     break;
-    case "3":
-     filteredProducts.sort((a, b) => b.price - a.price);
-     break;
-    case "4":
-     filteredProducts.sort((a, b) => a.name.localeCompare(b.name));
-     break;
-    case "5":
-     filteredProducts.sort((a, b) => b.name.localeCompare(a.name));       
-     break; 
-    default:
-      break;
-  }
+function loadComboOptions(combo, data) {
+  data.map((opt) =>
+    combo.insertAdjacentHTML("beforeend", `<option>${opt}</option>`)
+  );
 }
 
-function render() {
-  orderBy();
+Array.prototype.uniq = function () {
+  return this.filter(function (value, index, self) {
+    return self.indexOf(value) === index;
+  });
+};
 
-  const content = `${filteredProducts.map(product => {
-    return `
-      <div class="product" data-name="${product.name}" data-brand="${product.brand}" data-type="${product.product_type}" tabindex="${product.id}">
-        <figure class="product-figure">
-        <img src="${product.image_link}" width="215" height="215" alt="${product.name}" onerror="javascript:this.src='img/unavailable.png'">
-        </figure>
-        <section class="product-description">
-          <h1 class="product-name">${product.name}</h1>
-          <div class="product-brands"><span class="product-brand background-brand">${product.brand}</span>
-            <span class="product-brand background-price">${product.formattedPrice}</span></div>
-        </section> 
-      </div>`;
-  }).join("")}`;
-
-  catalogSection.innerHTML = content;
-
-  addEvents();
-}
-
-function loadDetails(product, elem) {
-  let details = `<div class="details-row">
-        <div>Brand</div>
-        <div class="details-bar">
-          <div class="details-bar-bg" style="width= 250">${product.brand}</div>
-        </div>
-      </div><div class="details-row">
-        <div>Price</div>
-        <div class="details-bar">
-          <div class="details-bar-bg" style="width= 250">${product.price}</div>
-        </div>
-      </div><div class="details-row">
-        <div>Rating</div>
-        <div class="details-bar">
-          <div class="details-bar-bg" style="width= 250">${product.rating}</div>
-        </div>
-      </div><div class="details-row">
-        <div>Category</div>
-        <div class="details-bar">
-          <div class="details-bar-bg" style="width= 250">${product.category}</div>
-        </div>
-      </div><div class="details-row">
-        <div>Product_type</div>
-        <div class="details-bar">
-          <div class="details-bar-bg" style="width= 250">${product.product_type}</div>
-        </div>
-      </div>`;
-
-  const productDetails = document.createElement("section");
-  productDetails.classList.add("product-details");
-  productDetails.innerHTML = details;
-
-  elem.appendChild(productDetails);
-}
+String.prototype.capitalize = function () {
+  return this.charAt(0).toUpperCase() + this.slice(1);
+};
   
-
-start();
-
